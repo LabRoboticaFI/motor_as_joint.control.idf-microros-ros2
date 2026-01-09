@@ -1,0 +1,21 @@
+# # # # # # # # # # # # #   COMPOSE FILE   # # # # # # # # # # # #
+
+services:
+
+  # # # # # # # # #   DEVCONTAINER   # # # # # # # # #
+  devc_motor_dc_as_joint: # Nombre del servicio
+    # Construcción del contenedor
+    image: devc_general:jazzy_idf_uros_agent # Se utilizará la imagen general del laboratorio
+
+    # Cómo se llamará el contenedor generado
+    container_name: devc_motor_dc_as_joint
+
+    # Mapea el workspace local dentro del contenedor
+    volumes:
+      - ../ros2_ws:/root/ros2_ws
+      - ../esp32_ws:/root/esp32_ws
+      - /dev:/dev
+
+    command: ["/bin/bash", "-il"]
+    tty: true
+    stdin_open: true
