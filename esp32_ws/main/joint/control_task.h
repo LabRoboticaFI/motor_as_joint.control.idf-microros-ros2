@@ -12,29 +12,130 @@
 
 // # # # # # # # # # # # # # # # #    ESTRUCTURA DE DATO: JOINT   # # # # # # # # # # # # # # # # #
 
-// ED que encapsula información de los ENCODERS
+
+
+
+// # # # ED que encapsulan información de los ENCODERS # # #
+
 typedef struct {
-    gpio_num_t gpio_encoder_signal_A;
-    gpio_num_t gpio_encoder_signal_B;
+    gpio_num_t gpio_signal_A;
+    gpio_num_t gpio_signal_B;
+    int32_t encoder_ratio; // Relación de ticks por cada revolución de eje post-reducción.
+    int16_t redutor_ratio;
+} joint_encoder_config_t;
+
+typedef struct {
+    joint_encoder_config_t config;
     pcnt_unit_handle_t pcnt_handle;
     int32_t q_tick_counter;
-    int32_t ratio_encoder; // Relación de ticks por cada revolución de eje post-reducción.
 } joint_encoder_t;
 
-// ED que encapsula información acerca del PWM para los MOTORES
-typedef struct {
-    gpio_num_t gpio;
-    ledc_channel_t pwm_channel;
-} joint_motor_signal_t;
 
-// ED que encapsula información acerca del CONTROL de los MOTORES
-typedef struct {
-    gpio_num_t control_direction_1;
-    gpio_num_t control_direction_2;
-    joint_motor_signal_t control_velocity;
-} joint_motor_control_t;
 
-// ED que encapsula información de las QUEUES entre tasks.
+
+
+// # # #  ED que encapsula información acerca de los MOTORES # # #
+
+typedef struct {
+    gpio_num_t gpio_direction_1;
+    gpio_num_t gpio_direction_2;
+    gpio_num_t gpio_velocity_pwm;
+    ledc_channel_t velocity_pwm_channel;
+} joint_motor_config_t;
+
+typedef struct {
+    joint_motor_config_t config;
+} joint_motor_t;
+
+
+
+
+
+
+
+
+// # # #  ED que encapsula información acerca del CONTROL # # #
+
+
+// ED que encapsula información del PID
+typedef struct {
+    float k_p;
+    float k_i;
+    float k_d;
+    float int_min; // Para anti-windup
+    float int_max;
+    float out_max;
+    float out_min;
+} joint_control_pid_config_t;
+
+// ED que encapsula información del PID
+typedef struct {
+    float integral;
+    float prev_error;
+    int64_t prev_t;
+} joint_control_pid_static_variables_t;
+
+
+// ED que encapsula información del lazo de control PID
+typedef struct {
+    joint_control_pid_config_t config;
+    joint_control_pid_static_variables_t static_variables;
+    float q_des;
+} joint_control_pid_t;
+
+
+
+
+
+
+// # # # ED que encapsula información del perfil QUÍNTICO
+typedef struct {
+    int64_t periodo_quintico;
+} joint_control_quintico_config_t;
+
+typedef struct {
+    joint_control_quintico_config_t config;
+    int64_t t_inicial;
+    int64_t t_actual;
+    float q_inicial;
+    float q_des_local;
+    float q_final;
+    bool perfil_activo;
+} joint_control_quintico_t;
+
+
+
+
+typedef struct {
+    float q_min;
+    float q_max;
+    float delta_q_min;
+    float delta_q_max;
+    float q_vel_min;
+    float q_vel_max;
+} joint_control_command_filter_config_t;
+
+typedef struct {
+    joint_control_command_filter_config_t config;
+} joint_control_command_filter_t;
+
+
+
+// # # # ED que encapsula información del CONTROL de la articulación
+typedef struct {
+    joint_control_command_filter_t command_filter;
+    joint_control_quintico_t quintico;
+    joint_control_pid_t pid;
+} joint_control_t;
+
+
+
+
+
+
+
+// # # #  ED que encapsula información de las COMMS QUEUES entre tasks.
+
 typedef struct {
     QueueHandle_t xQueue_q_des;
     QueueHandle_t xQueue_feedback;
@@ -43,36 +144,18 @@ typedef struct {
     const char *TAG;
 } joint_comms_t;
 
-// ED que encapsula información del lazo de control PID
-typedef struct {
-    float integral;
-    float prev_error;
-    int64_t prev_t;
-} pid_state_t;
 
-// ED que encapsula información del lazo de control PID
-typedef struct {
-    float q_des;
-    float k_p;
-    float k_i;
-    float k_d;
-    float int_min; // Para anti-windup
-    float int_max;
-    float out_max;
-    float out_min;
-    pid_state_t pid_state;
-} joint_pid_control_t;
+
+
 
 // Estructura principal de datos del JOINT. Se utilizan las estructuras de datos anteriores para encapsular la información de cada área.
 typedef struct {
+    joint_motor_t motor;
     joint_encoder_t encoder;
-    joint_motor_control_t motor;
-    joint_pid_control_t control;
+    joint_control_t control;
     joint_comms_t comms;
     float q_angle;
 } joint_t;
-
-// Hasta aquí termina la estructura de datos de la articulación ---> joint_t
 
 
 

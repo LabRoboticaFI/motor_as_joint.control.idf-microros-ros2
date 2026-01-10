@@ -4,6 +4,7 @@
 #include "driver/gpio.h" // Para importar tipos de datos de las funciones -> gpio_num_t
 #include "driver/ledc.h" // Para importar tipos de datos de las funciones -> ledc_channel_t
 #include "driver/pulse_cnt.h" // Para importar tipos de datos de las funciones -> pcnt_unit_handle_t
+#include "joint/control_task.h"
 
 // COMUNICACIÓN UART0
 #define UART0_TX GPIO_NUM_1              // 22. Transmisión  (no van a conectarse)
@@ -15,13 +16,9 @@
 
 /* # # # # # # # # # # # #   DECLARACIÓN DE FUNCIONES   # # # # # # # # # # # # # */
 
-esp_err_t joint_gpios_pwm_control_signal_setup(gpio_num_t gpio_direction_1,
-                                               gpio_num_t gpio_direction_2,
-                                               gpio_num_t gpio_pwm_velocity,
-                                               ledc_channel_t gpio_pwm_velocity_channel);
+esp_err_t joint_motor_setup(joint_motor_config_t motor_config);
 
-esp_err_t joint_encoder_setup(gpio_num_t gpio_signal_A,
-                        gpio_num_t gpio_signal_B,
-                        pcnt_unit_handle_t * joint_encoder_pcnt_handler);
+esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
+                              pcnt_unit_handle_t * joint_encoder_pcnt_handler);
 
 #endif //JOINT_CONFIG_H

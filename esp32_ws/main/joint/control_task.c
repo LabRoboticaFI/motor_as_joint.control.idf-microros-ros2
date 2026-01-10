@@ -27,7 +27,7 @@ static const char *TAG_CONTROL_TASK = "CONTROL_TASK"; // El 'TAG' es una etiquet
 
 // # # # # # # # # # # # # # # # # # # # #    TASK PRINCIPAL: PERFIL_QUINTICO_LOCAL_TASK()    # # # # # # # # # # # # # # # # # # # # # # # # #
 
-void perfil_quintico_local_task(void * pvParameters){
+/*void perfil_quintico_local_task(void * pvParameters){
 
     ESP_LOGI(TAG_CONTROL_TASK, "Inicializando perfil_quintico_local_task()");
 
@@ -86,14 +86,14 @@ void perfil_quintico_local_task(void * pvParameters){
 
         //vTaskDelay(pdMS_TO_TICKS(1)); // MUY recomendable
     }
-}
+}*/
 
 
 
 
 // # # # # # # # # # # # # # # # # # # # #    TASK PRINCIPAL: CONTROL_JOINT_TASK()    # # # # # # # # # # # # # # # # # # # # # # # # #
 
-
+/*
 void control_joint_task(void * pvParameters){
     
     ESP_LOGI(TAG_CONTROL_TASK, "Inicializando control_joint_task()...");
@@ -146,7 +146,7 @@ void control_joint_task(void * pvParameters){
         //vTaskDelay(1);  // 1 tick (≈1 ms)
     }
     vTaskDelete(NULL);
-}
+}*/
 
 
 void control_joint_task2(void * pvParameters)
@@ -161,7 +161,7 @@ void control_joint_task2(void * pvParameters)
     float q_inicial    = 0.0f;
     float q_final      = 0.0f;
 
-    int64_t periodo_quintico = 5 * 1000 * 1000; // 10 ms (100 Hz)
+    int64_t periodo_quintico = 10 * 1000 * 1000; // 10 ms (100 Hz)
     int64_t tiempo_inicial  = 0;
     bool perfil_activo = false;
 
@@ -179,7 +179,7 @@ void control_joint_task2(void * pvParameters)
 
         joint->q_angle =
             (float)joint->encoder.q_tick_counter * 360.0f /
-            joint->encoder.ratio_encoder;
+            joint->encoder.config.encoder_ratio;
 
         /* Publicar feedback para ROS (si hay consumidor) */
         q_feedback = joint->q_angle;
@@ -231,7 +231,7 @@ void control_joint_task2(void * pvParameters)
         }
 
         /* 4. Actualizar referencia del PID */
-        joint->control.q_des = q_des_local;
+        joint->control.pid.q_des = q_des_local;
 
         /* 5. PID */
         pid_signal = get_pid_signal(joint);
@@ -239,20 +239,20 @@ void control_joint_task2(void * pvParameters)
         /* 6. Actuación motor */
         if (pid_signal >= 0)
         {
-            gpio_set_level(joint->motor.control_direction_1, 1);
-            gpio_set_level(joint->motor.control_direction_2, 0);
+            gpio_set_level(joint->motor.config.gpio_direction_1, 1);
+            gpio_set_level(joint->motor.config.gpio_direction_2, 0);
         }
         else
         {
             pid_signal = -pid_signal;
-            gpio_set_level(joint->motor.control_direction_1, 0);
-            gpio_set_level(joint->motor.control_direction_2, 1);
+            gpio_set_level(joint->motor.config.gpio_direction_1, 0);
+            gpio_set_level(joint->motor.config.gpio_direction_2, 1);
         }
 
-        if (pid_signal > joint->control.out_max)
-            pid_signal = joint->control.out_max;
+        if (pid_signal > joint->control.pid.config.out_max)
+            pid_signal = joint->control.pid.config.out_max;
 
-        set_pwm_duty(joint->motor.control_velocity.pwm_channel,
+        set_pwm_duty(joint->motor.config.velocity_pwm_channel,
                      (uint32_t)pid_signal);
     }
 }
@@ -269,41 +269,41 @@ float get_pid_signal(joint_t * joint){
     int64_t t = esp_timer_get_time(); // us
 
     // dt en segundos
-    dt = (float)(t - joint->control.pid_state.prev_t) * 1e-6f;
+    dt = (float)(t - joint->control.pid.static_variables.prev_t) * 1e-6f;
     if(dt < 1e-6f) dt = 1e-6f;
 
-    joint->control.pid_state.prev_t = t;
+    joint->control.pid.static_variables.prev_t = t;
 
     // Error
-    error = joint->control.q_des - joint->q_angle;
-    d_error = (error - joint->control.pid_state.prev_error) / dt;
-    joint->control.pid_state.prev_error = error;
+    error = joint->control.pid.q_des - joint->q_angle;
+    d_error = (error - joint->control.pid.static_variables.prev_error) / dt;
+    joint->control.pid.static_variables.prev_error = error;
 
     // --- PID ---
 
     // 1. Proporcional
-    pid_p = joint->control.k_p * error;
+    pid_p = joint->control.pid.config.k_p * error;
 
     // 2. Integral (con anti-windup)
-    joint->control.pid_state.integral += joint->control.k_i * error * dt;
+    joint->control.pid.static_variables.integral += joint->control.pid.config.k_i * error * dt;
 
-    if(joint->control.pid_state.integral > joint->control.int_max){
-        joint->control.pid_state.integral = joint->control.int_max;
-    } else if(joint->control.pid_state.integral < joint->control.int_min){
-        joint->control.pid_state.integral = joint->control.int_min;
+    if(joint->control.pid.static_variables.integral > joint->control.pid.config.int_max){
+        joint->control.pid.static_variables.integral = joint->control.pid.config.int_max;
+    } else if(joint->control.pid.static_variables.integral < joint->control.pid.config.int_min){
+        joint->control.pid.static_variables.integral = joint->control.pid.config.int_min;
     }
 
     // 3. Derivada
-    pid_d = joint->control.k_d * d_error;
+    pid_d = joint->control.pid.config.k_d * d_error;
 
     // 4. Output
-    pid_signal = pid_p + joint->control.pid_state.integral + pid_d;
+    pid_signal = pid_p + joint->control.pid.static_variables.integral + pid_d;
 
     // Saturación del output (opc)
-    if(pid_signal > joint->control.out_max){
-        pid_signal = joint->control.out_max;
-    } else if(pid_signal < joint->control.out_min){
-        pid_signal = joint->control.out_min;
+    if(pid_signal > joint->control.pid.config.out_max){
+        pid_signal = joint->control.pid.config.out_max;
+    } else if(pid_signal < joint->control.pid.config.out_min){
+        pid_signal = joint->control.pid.config.out_min;
     }
 
     return pid_signal;

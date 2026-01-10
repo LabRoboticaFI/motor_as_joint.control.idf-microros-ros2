@@ -1,4 +1,5 @@
 #include "joint/joint_config.h" // Librería de este archivo
+#include "joint/control_task.h"
 
 #include "driver/gpio.h" // Para gpios
 #include "driver/ledc.h" // Para pwm
@@ -10,10 +11,7 @@ static const char *TAG = "joint_config";
 
 
 
-esp_err_t joint_gpios_pwm_control_signal_setup(gpio_num_t gpio_direction_1,
-                                               gpio_num_t gpio_direction_2,
-                                               gpio_num_t gpio_pwm_velocity,
-                                               ledc_channel_t gpio_pwm_velocity_channel){
+esp_err_t joint_motor_setup(joint_motor_config_t motor_config){
     
     ESP_LOGI(TAG, "setting joints configurations...");
 
@@ -31,9 +29,9 @@ esp_err_t joint_gpios_pwm_control_signal_setup(gpio_num_t gpio_direction_1,
     }
 
     ledc_channel_config_t channelConfig_left = {
-        .gpio_num = gpio_pwm_velocity,
+        .gpio_num = motor_config.gpio_velocity_pwm,
         .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .channel = gpio_pwm_velocity_channel,
+        .channel = motor_config.velocity_pwm_channel,
         .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER_0,
         .duty = 0,
@@ -44,25 +42,24 @@ esp_err_t joint_gpios_pwm_control_signal_setup(gpio_num_t gpio_direction_1,
 
     // # # # # # # # # # # # #   GPIOs PARA DIRECCIONAMIENTO DE PUENTE H   # # # # # # # # # # # # # 
 
-    gpio_set_direction(gpio_direction_1, GPIO_MODE_OUTPUT); // Se configura la dirección output del pin
-    gpio_set_level(gpio_direction_1, 0);
+    gpio_set_direction(motor_config.gpio_direction_1, GPIO_MODE_OUTPUT); // Se configura la dirección output del pin
+    gpio_set_level(motor_config.gpio_direction_1, 0);
 
-    gpio_set_direction(gpio_direction_2, GPIO_MODE_OUTPUT); // Se configura la dirección output del pin
-    gpio_set_level(gpio_direction_2, 0);
+    gpio_set_direction(motor_config.gpio_direction_2, GPIO_MODE_OUTPUT); // Se configura la dirección output del pin
+    gpio_set_level(motor_config.gpio_direction_2, 0);
 
     return ESP_OK;
 }
 
 
-esp_err_t joint_encoder_setup(gpio_num_t gpio_signal_A,
-                        gpio_num_t gpio_signal_B,
-                        pcnt_unit_handle_t * joint_encoder_pcnt_handler){
+esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
+                              pcnt_unit_handle_t * joint_encoder_pcnt_handler){
 
     // # Configuración de Límites de conteo
     ESP_LOGI(TAG, "install pcnt unit");
     pcnt_unit_config_t unit_config = {
-        .high_limit = 10000, // Editar cuando se tengan límites mínimos y máximos de la articulación (traducirlos a ticks)
-        .low_limit = -10000, // Editar cuando se tengan límites mínimos y máximos de la articulación (traducirlos a ticks)
+        .high_limit = 32000, // Editar cuando se tengan límites mínimos y máximos de la articulación (traducirlos a ticks)
+        .low_limit = -32000, // Editar cuando se tengan límites mínimos y máximos de la articulación (traducirlos a ticks)
     };
     *joint_encoder_pcnt_handler = NULL;
     ESP_ERROR_CHECK(pcnt_new_unit(&unit_config, joint_encoder_pcnt_handler));
@@ -81,15 +78,15 @@ esp_err_t joint_encoder_setup(gpio_num_t gpio_signal_A,
     // # Configuración de canales
     ESP_LOGI(TAG, "install pcnt channels");
     pcnt_chan_config_t chan_a_config = {
-        .edge_gpio_num = gpio_signal_A,
-        .level_gpio_num = gpio_signal_B,
+        .edge_gpio_num = joint_encoder_config.gpio_signal_A,
+        .level_gpio_num = joint_encoder_config.gpio_signal_B,
     };
     pcnt_channel_handle_t pcnt_chan_a = NULL;
     ESP_ERROR_CHECK(pcnt_new_channel(*joint_encoder_pcnt_handler, &chan_a_config, &pcnt_chan_a));
     
     pcnt_chan_config_t chan_b_config = {
-        .edge_gpio_num = gpio_signal_B,
-        .level_gpio_num = gpio_signal_A,
+        .edge_gpio_num = joint_encoder_config.gpio_signal_B,
+        .level_gpio_num = joint_encoder_config.gpio_signal_A,
     };
     pcnt_channel_handle_t pcnt_chan_b = NULL;
     ESP_ERROR_CHECK(pcnt_new_channel(*joint_encoder_pcnt_handler, &chan_b_config, &pcnt_chan_b));
