@@ -9,27 +9,29 @@
 
 static const char *TAG = "joint_config";
 
+esp_err_t joint_motor_setup(joint_motor_config_t motor_config)
+{
 
-
-esp_err_t joint_motor_setup(joint_motor_config_t motor_config){
-    
     ESP_LOGI(TAG, "setting joints configurations...");
 
     // # # # # # # # # # # # #   PWM PARA MOTOR DC   # # # # # # # # # # # # # #
     static bool flag = true;
-    if(flag == true){
+    if (flag == true)
+    {
+        // El timer se configura estáticamente, ya que el tren de pulsos que genera lo utilizan los diferentes pwm de los diferentes motores que se vayan a controlar.
+        // También por ello no se pueden tener configuraciones propias de cada motor, ya que todos deberían compartir el mismo timer (channel).
         static ledc_timer_config_t timerConfig = {
-        .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .timer_num = LEDC_TIMER_0, // Aguas con la aplicación de timers, ya utiliza el timer 0 con esta aplicación.
-        .freq_hz = (uint32_t) 20 * 1000,             // 20kHz
+            .speed_mode = LEDC_HIGH_SPEED_MODE,
+            .duty_resolution = LEDC_TIMER_10_BIT,
+            .timer_num = LEDC_TIMER_0,      // Aguas con la aplicación de timers, ya utiliza el timer 0 con esta aplicación.
+            .freq_hz = (uint32_t)20 * 1000, // 20kHz
         };
         ESP_ERROR_CHECK(ledc_timer_config(&timerConfig));
         flag = false;
     }
 
     ledc_channel_config_t channelConfig_left = {
-        .gpio_num = motor_config.gpio_velocity_pwm,
+        .gpio_num = motor_config.velocity_pwm_gpio,
         .speed_mode = LEDC_HIGH_SPEED_MODE,
         .channel = motor_config.velocity_pwm_channel,
         .intr_type = LEDC_INTR_DISABLE,
@@ -38,9 +40,7 @@ esp_err_t joint_motor_setup(joint_motor_config_t motor_config){
     };
     ESP_ERROR_CHECK(ledc_channel_config(&channelConfig_left));
 
-
-
-    // # # # # # # # # # # # #   GPIOs PARA DIRECCIONAMIENTO DE PUENTE H   # # # # # # # # # # # # # 
+    // # # # # # # # # # # # #   GPIOs PARA DIRECCIONAMIENTO DE PUENTE H   # # # # # # # # # # # # #
 
     gpio_set_direction(motor_config.gpio_direction_1, GPIO_MODE_OUTPUT); // Se configura la dirección output del pin
     gpio_set_level(motor_config.gpio_direction_1, 0);
@@ -51,9 +51,9 @@ esp_err_t joint_motor_setup(joint_motor_config_t motor_config){
     return ESP_OK;
 }
 
-
 esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
-                              pcnt_unit_handle_t * joint_encoder_pcnt_handler){
+                              pcnt_unit_handle_t *joint_encoder_pcnt_handler)
+{
 
     // # Configuración de Límites de conteo
     ESP_LOGI(TAG, "install pcnt unit");
@@ -64,16 +64,12 @@ esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
     *joint_encoder_pcnt_handler = NULL;
     ESP_ERROR_CHECK(pcnt_new_unit(&unit_config, joint_encoder_pcnt_handler));
 
-
-
     // # Configuración del filtro de Glitches
     ESP_LOGI(TAG, "set glitch filter");
     pcnt_glitch_filter_config_t filter_config = {
         .max_glitch_ns = 1000, // Lo dejo como estaba, pero si tenemos un filtrado del Schmitt Trigger antes del GPIO, se podría bajar. Esto es más bien para encoders mecánicos.
     };
     ESP_ERROR_CHECK(pcnt_unit_set_glitch_filter(*joint_encoder_pcnt_handler, &filter_config));
-
-
 
     // # Configuración de canales
     ESP_LOGI(TAG, "install pcnt channels");
@@ -83,15 +79,13 @@ esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
     };
     pcnt_channel_handle_t pcnt_chan_a = NULL;
     ESP_ERROR_CHECK(pcnt_new_channel(*joint_encoder_pcnt_handler, &chan_a_config, &pcnt_chan_a));
-    
+
     pcnt_chan_config_t chan_b_config = {
         .edge_gpio_num = joint_encoder_config.gpio_signal_B,
         .level_gpio_num = joint_encoder_config.gpio_signal_A,
     };
     pcnt_channel_handle_t pcnt_chan_b = NULL;
     ESP_ERROR_CHECK(pcnt_new_channel(*joint_encoder_pcnt_handler, &chan_b_config, &pcnt_chan_b));
-
-
 
     // # Configuración de acciones de canales
     //   Define qué pasa cuando llega un flanco y el nivel está alto/bajo:
@@ -100,7 +94,6 @@ esp_err_t joint_encoder_setup(joint_encoder_config_t joint_encoder_config,
     ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
     ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE));
     ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
-
 
     // # Inicialización
     ESP_LOGI(TAG, "enable pcnt unit");
