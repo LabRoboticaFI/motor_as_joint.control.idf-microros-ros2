@@ -81,63 +81,15 @@ void app_main(void)
 
 	/* # # # # # # # # # # # # # # # # # #   FASE 1: Configuraciones   # # # # # # # # # # # # # */
 
-	/* # # # # # # # #    JOINT 1    # # # # # # # # # #*/
-
-	// joint1.encoder.pcnt_handle = NULL;
-	// joint1.encoder.q_tick_counter = 0;
-	// joint1.control.pid.static_variables.integral = 0.0f;
-	// joint1.control.pid.static_variables.prev_error = 0.0f;
-	// joint1.control.pid.static_variables.prev_t = 0.0f;
-	// joint1.control.pid.q_des = 0;
-
 	// Creación de Queue ANTES de lanzar tareas, de acuerdo al diagrama de bloques de task del README.md
 	joint1.comms.xQueue_q_des = xQueueCreate(1, sizeof(float));
-	// joint1.comms.xQueue_q_actual = xQueueCreate(1, sizeof(float));
 	joint1.comms.xQueue_feedback = xQueueCreate(1, sizeof(float));
-	// joint1.comms.xQueue_quintico = xQueueCreate(1, sizeof(float));
 
 	// Configuración de GPIOs que controlan el movimiento del motor
 	joint_motor_setup(joint1.motor.config);
 
 	// Configuración de periférico PCNT para conteo de encoder.
 	joint_encoder_setup(joint1.encoder.config, &joint1.encoder.pcnt_handle);
-
-
-	int counter_encoder_test = 0;
-	while(true){
-		pcnt_unit_get_count(joint1.encoder.pcnt_handle, &counter_encoder_test);
-		ESP_LOGI(TAG_MAIN, "counter -> %d", counter_encoder_test);
-		vTaskDelay(pdMS_TO_TICKS(10));
-	}
-
-
-	// TESTESTESTESTESTESTESTESTEST
-
-	gpio_set_level(joint1.motor.config.gpio_direction_1, 1);
-	gpio_set_level(joint1.motor.config.gpio_direction_2, 0);
-
-	//int counter_encoder_test = 0;
-	int16_t counter_pwm_test = 0;
-
-	while (counter_encoder_test < 10)
-	{
-		counter_pwm_test++;
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, joint1.motor.config.velocity_pwm_channel, counter_pwm_test); // Actualiza el PARÁMETRO de duty del PWM
-		ledc_update_duty(LEDC_HIGH_SPEED_MODE, joint1.motor.config.velocity_pwm_channel);				 // Actualiza la SALIDA FISICA del periférico
-		pcnt_unit_get_count(joint1.encoder.pcnt_handle, &counter_encoder_test);
-		ESP_LOGI(TAG_MAIN, "counter -> %" PRId16, counter_pwm_test);
-	}
-
-	ESP_LOGI(TAG_MAIN, "counter -------> %" PRId16, counter_pwm_test);
-
-	counter_pwm_test = 0;
-
-	ledc_set_duty(LEDC_HIGH_SPEED_MODE, joint1.motor.config.velocity_pwm_channel, counter_pwm_test); // Actualiza el PARÁMETRO de duty del PWM
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, joint1.motor.config.velocity_pwm_channel);
-
-
-	// TESTESTESTESTESTESTESTESTEST
-
 
 
 
